@@ -1,492 +1,275 @@
-const supabaseClient = window.supabase.createClient(
-    SUPABASE_URL,
-    SUPABASE_KEY
+// ==================================================
+// VARIABLES
+// ==================================================
+
+let channel = null;
+
+let playerId = null;
+
+let motionEnabled = false;
+
+
+// ==================================================
+// ELEMENTS
+// ==================================================
+
+const roomInput =
+    document.getElementById(
+        "roomInput"
+    );
+
+
+const joinButton =
+    document.getElementById(
+        "joinButton"
+    );
+
+
+const motionButton =
+    document.getElementById(
+        "motionButton"
+    );
+
+
+const status =
+    document.getElementById(
+        "status"
+    );
+
+
+const sensorStatus =
+    document.getElementById(
+        "sensorStatus"
+    );
+
+
+// ==================================================
+// JOIN ROOM
+// ==================================================
+
+joinButton.addEventListener(
+    "click",
+    joinRoom
 );
 
 
-// ==================================================
-// ROOM
-// ==================================================
+async function joinRoom() {
 
-const roomCode = createRoomCode();
+    const roomCode =
+        roomInput.value
+            .trim()
+            .toUpperCase();
 
-document.getElementById("roomCode").textContent = roomCode;
 
-const channel = supabaseClient.channel(
-    `joust:${roomCode}`,
-    {
-        config: {
-            presence: {
-                key: "game-screen"
-            }
-        }
-    }
-);
+    if (
+        roomCode.length !== 6
+    ) {
 
+        status.textContent =
+            "Room code must be 6 characters.";
 
-// ==================================================
-// GAME STATE
-// ==================================================
-
-const players = {};
-
-
-// ==================================================
-// CREATE ROOM CONNECTION
-// ==================================================
-
-channel.subscribe(async (status) => {
-
-    console.log("Supabase:", status);
-
-    if (status === "SUBSCRIBED") {
-
-        document.getElementById("status").textContent =
-            "Room ready - waiting for players";
-
-        await channel.track({
-            type: "game-screen"
-        });
-
-    }
-
-});
-
-
-// ==================================================
-// RECEIVE PLAYER MOVEMENT
-// ==================================================
-
-channel.on(
-    "broadcast",
-    {
-        event: "player-movement"
-    },
-    ({ payload }) => {
-
-        console.log("Movement received:", payload);
-
-        const player = players[payload.playerId];
-
-        if (!player) {
-
-            console.log(
-                "Movement received for unknown player:",
-                payload.playerId
-            );
-
-            return;
-        }
-
-        player.input.x = payload.x;
-        player.input.y = payload.y;
-
-    }
-);
-
-
-// ==================================================
-// PRESENCE SYNC
-// ==================================================
-
-channel.on(
-    "presence",
-    {
-        event: "sync"
-    },
-    () => {
-
-        console.log("Presence sync");
-
-        const state = channel.presenceState();
-
-        console.log("Current presence:", state);
-
-        rebuildPlayers(state);
-
-    }
-);
-
-
-// ==================================================
-// PLAYER JOINED
-// ==================================================
-
-channel.on(
-    "presence",
-    {
-        event: "join"
-    },
-    ({ key, newPresences }) => {
-
-        console.log(
-            "Player joined:",
-            key,
-            newPresences
-        );
-
-        newPresences.forEach((presence) => {
-
-            if (presence.type !== "player") {
-                return;
-            }
-
-            createPlayer(
-                presence.playerId
-            );
-
-        });
-
-    }
-);
-
-
-// ==================================================
-// PLAYER LEFT
-// ==================================================
-
-channel.on(
-    "presence",
-    {
-        event: "leave"
-    },
-    ({ key }) => {
-
-        console.log(
-            "Player left:",
-            key
-        );
-
-        removePlayer(key);
-
-    }
-);
-
-
-// ==================================================
-// REBUILD PLAYERS FROM PRESENCE
-// ==================================================
-
-function rebuildPlayers(state) {
-
-    const activePlayers = new Set();
-
-
-    Object.values(state).forEach((presences) => {
-
-        presences.forEach((presence) => {
-
-            if (presence.type !== "player") {
-                return;
-            }
-
-            activePlayers.add(
-                presence.playerId
-            );
-
-            createPlayer(
-                presence.playerId
-            );
-
-        });
-
-    });
-
-
-    // Remove players no longer present
-
-    Object.keys(players).forEach((playerId) => {
-
-        if (!activePlayers.has(playerId)) {
-
-            removePlayer(playerId);
-
-        }
-
-    });
-
-
-    document.getElementById("playerCount")
-        .textContent =
-        Object.keys(players).length;
-
-
-    if (Object.keys(players).length > 0) {
-
-        document.getElementById("status")
-            .textContent =
-            "Players connected!";
-
-    }
-
-}
-
-
-// ==================================================
-// CREATE PLAYER
-// ==================================================
-
-function createPlayer(playerId) {
-
-    if (players[playerId]) {
         return;
+
     }
+
+
+    playerId =
+        crypto.randomUUID();
 
 
     console.log(
-        "Creating player:",
+        "Player ID:",
         playerId
     );
 
 
-    const arena =
-        document.getElementById("arena");
+    channel =
+        supabaseClient.channel(
+            `joust:${roomCode}`,
+            {
+                config: {
 
+                    presence: {
 
-    const element =
-        document.createElement("div");
+                        key: playerId
 
+                    },
 
-    element.className =
-        "player";
+                    broadcast: {
 
+                        self: false
 
-    element.textContent =
-        Object.keys(players).length + 1;
+                    }
 
+                }
 
-    arena.appendChild(element);
-
-
-    players[playerId] = {
-
-        id: playerId,
-
-        x: Math.random() * 700 + 30,
-
-        y: Math.random() * 400 + 30,
-
-        input: {
-            x: 0,
-            y: 0
-        },
-
-        speed: 4,
-
-        element
-
-    };
-
-}
-
-
-// ==================================================
-// REMOVE PLAYER
-// ==================================================
-
-function removePlayer(playerId) {
-
-    const player =
-        players[playerId];
-
-    if (!player) {
-        return;
-    }
-
-
-    player.element.remove();
-
-    delete players[playerId];
-
-
-    document.getElementById("playerCount")
-        .textContent =
-        Object.keys(players).length;
-
-}
-
-
-// ==================================================
-// GAME LOOP
-// ==================================================
-
-function updateGame() {
-
-    Object.values(players).forEach(player => {
-
-        player.x +=
-            player.input.x *
-            player.speed;
-
-
-        player.y +=
-            player.input.y *
-            player.speed;
-
-
-        // Arena boundaries
-
-        const maxX =
-            document.getElementById("arena")
-                .clientWidth - 40;
-
-        const maxY =
-            document.getElementById("arena")
-                .clientHeight - 40;
-
-
-        player.x = Math.max(
-            0,
-            Math.min(
-                maxX,
-                player.x
-            )
+            }
         );
 
 
-        player.y = Math.max(
-            0,
-            Math.min(
-                maxY,
-                player.y
-            )
-        );
+    channel.subscribe(
+        async statusValue => {
 
-    });
-
-}
+            console.log(
+                "Supabase:",
+                statusValue
+            );
 
 
-// ==================================================
-// RENDER
-// ==================================================
+            if (
+                statusValue ===
+                "SUBSCRIBED"
+            ) {
 
-function renderPlayers() {
-
-    Object.values(players).forEach(player => {
-
-        player.element.style.transform =
-            `translate(
-                ${player.x}px,
-                ${player.y}px
-            )`;
-
-    });
-
-}
+                status.textContent =
+                    "Connected to room.";
 
 
-// ==================================================
-// MAIN LOOP
-// ==================================================
+                await channel.track({
 
-function gameLoop() {
+                    type: "player",
 
-    updateGame();
+                    playerId
 
-    renderPlayers();
-
-    requestAnimationFrame(gameLoop);
-
-}
-
-gameLoop();
+                });
 
 
-// ==================================================
-// ROOM CODE
-// ==================================================
-
-function createRoomCode() {
-
-    return Math.random()
-        .toString(36)
-        .substring(2, 8)
-        .toUpperCase();
-
-}
-
-function handleMotion(event) {
-
-    console.log("Device motion event fired");
-
-    const acceleration =
-        event.accelerationIncludingGravity;
-
-    if (!acceleration) {
-        console.log("No acceleration data");
-        return;
-    }
+                console.log(
+                    "Presence tracked"
+                );
 
 
-    console.log(
-        "Acceleration:",
-        acceleration.x,
-        acceleration.y,
-        acceleration.z
+                motionButton.disabled =
+                    false;
+
+
+                status.textContent =
+                    "Connected. Enable motion.";
+
+            }
+
+        }
     );
 
 }
+
+
+// ==================================================
+// ENABLE MOTION
+// ==================================================
+
+motionButton.addEventListener(
+    "click",
+    enableMotion
+);
+
+
 async function enableMotion() {
 
-    console.log("Enable Motion clicked");
+    console.log(
+        "ENABLE MOTION CLICKED"
+    );
+
 
     try {
 
-        // iPhone / iPad
+        // ==========================================
+        // DEVICE MOTION PERMISSION
+        // ==========================================
+
         if (
-            typeof DeviceMotionEvent !== "undefined" &&
-            typeof DeviceMotionEvent.requestPermission === "function"
+            typeof DeviceMotionEvent !==
+            "undefined" &&
+
+            typeof DeviceMotionEvent
+                .requestPermission ===
+            "function"
         ) {
 
-            const motionPermission =
-                await DeviceMotionEvent.requestPermission();
-
             console.log(
-                "Motion permission:",
-                motionPermission
+                "Requesting DeviceMotion permission..."
             );
 
-            if (motionPermission !== "granted") {
+
+            const permission =
+                await DeviceMotionEvent
+                    .requestPermission();
+
+
+            console.log(
+                "DeviceMotion permission:",
+                permission
+            );
+
+
+            if (
+                permission !==
+                "granted"
+            ) {
 
                 status.textContent =
-                    "Motion permission denied";
+                    "Motion permission denied.";
+
+                sensorStatus.textContent =
+                    "Denied";
 
                 return;
+
             }
+
         }
 
 
-        // Orientation permission
+        // ==========================================
+        // DEVICE ORIENTATION PERMISSION
+        // ==========================================
+
         if (
-            typeof DeviceOrientationEvent !== "undefined" &&
-            typeof DeviceOrientationEvent.requestPermission === "function"
+            typeof DeviceOrientationEvent !==
+            "undefined" &&
+
+            typeof DeviceOrientationEvent
+                .requestPermission ===
+            "function"
         ) {
 
-            const orientationPermission =
-                await DeviceOrientationEvent.requestPermission();
+            console.log(
+                "Requesting orientation permission..."
+            );
+
+
+            const permission =
+                await DeviceOrientationEvent
+                    .requestPermission();
+
 
             console.log(
                 "Orientation permission:",
-                orientationPermission
+                permission
             );
 
-            if (orientationPermission !== "granted") {
+
+            if (
+                permission !==
+                "granted"
+            ) {
 
                 status.textContent =
-                    "Orientation permission denied";
+                    "Orientation permission denied.";
+
+                sensorStatus.textContent =
+                    "Denied";
 
                 return;
+
             }
+
         }
 
 
-        // Start listening
-
-        window.addEventListener(
-            "devicemotion",
-            handleMotion
-        );
+        // ==========================================
+        // ADD LISTENERS
+        // ==========================================
 
         window.addEventListener(
             "deviceorientation",
@@ -494,87 +277,246 @@ async function enableMotion() {
         );
 
 
+        window.addEventListener(
+            "devicemotion",
+            handleMotion
+        );
+
+
         motionEnabled = true;
+
 
         motionButton.textContent =
             "Motion Enabled";
 
+
+        motionButton.disabled =
+            true;
+
+
         status.textContent =
-            "Move your phone!";
+            "Motion enabled. Move your phone!";
+
+
+        sensorStatus.textContent =
+            "Waiting for sensor data";
 
 
         console.log(
             "Motion sensors enabled"
         );
 
-    } catch (error) {
+    }
+
+    catch (error) {
 
         console.error(
             "Motion permission error:",
             error
         );
 
+
         status.textContent =
-            `Motion error: ${error.message}`;
+            "Motion error: " +
+            error.message;
+
+
+        sensorStatus.textContent =
+            "Error";
 
     }
+
 }
 
 
+// ==================================================
+// ORIENTATION
+// ==================================================
+
 function handleOrientation(event) {
+
+    if (!motionEnabled) {
+
+        return;
+
+    }
+
+
+    const beta =
+        event.beta || 0;
+
+
+    const gamma =
+        event.gamma || 0;
+
 
     console.log(
         "Orientation:",
-        event.beta,
-        event.gamma
+        beta,
+        gamma
     );
 
-    const beta = event.beta || 0;
-    const gamma = event.gamma || 0;
 
-
-    document.getElementById("beta")
-        .textContent =
+    document.getElementById(
+        "beta"
+    ).textContent =
         beta.toFixed(1);
 
-    document.getElementById("gamma")
-        .textContent =
+
+    document.getElementById(
+        "gamma"
+    ).textContent =
         gamma.toFixed(1);
 
 
-    // Phone tilted left/right
-    let x = gamma / 30;
-
-    // Phone tilted forward/backward
-    let y = (beta - 45) / 30;
+    sensorStatus.textContent =
+        "Working";
 
 
-    x = Math.max(
-        -1,
-        Math.min(1, x)
-    );
+    // ==============================================
+    // CONVERT PHONE TILT TO MOVEMENT
+    // ==============================================
 
-    y = Math.max(
-        -1,
-        Math.min(1, y)
-    );
+    let x =
+        gamma / 30;
+
+
+    let y =
+        (beta - 45) / 30;
+
+
+    // Clamp
+
+    x =
+        Math.max(
+            -1,
+            Math.min(
+                1,
+                x
+            )
+        );
+
+
+    y =
+        Math.max(
+            -1,
+            Math.min(
+                1,
+                y
+            )
+        );
 
 
     // Dead zone
 
-    if (Math.abs(x) < 0.15) {
+    if (
+        Math.abs(x) < 0.15
+    ) {
+
         x = 0;
+
     }
 
-    if (Math.abs(y) < 0.15) {
+
+    if (
+        Math.abs(y) < 0.15
+    ) {
+
         y = 0;
+
     }
 
 
-    document.getElementById("movement")
-        .textContent =
+    document.getElementById(
+        "movement"
+    ).textContent =
         `${x.toFixed(2)}, ${y.toFixed(2)}`;
 
 
-    sendMovement(x, y);
+    sendMovement(
+        x,
+        y
+    );
+
+}
+
+
+// ==================================================
+// RAW MOTION DEBUG
+// ==================================================
+
+function handleMotion(event) {
+
+    if (!motionEnabled) {
+
+        return;
+
+    }
+
+
+    const acceleration =
+        event.accelerationIncludingGravity;
+
+
+    if (!acceleration) {
+
+        return;
+
+    }
+
+
+    console.log(
+        "Motion:",
+        acceleration.x,
+        acceleration.y,
+        acceleration.z
+    );
+
+}
+
+
+// ==================================================
+// SEND MOVEMENT
+// ==================================================
+
+function sendMovement(
+    x,
+    y
+) {
+
+    if (!channel) {
+
+        return;
+
+    }
+
+
+    if (
+        channel.state !==
+        "joined"
+    ) {
+
+        return;
+
+    }
+
+
+    channel.send({
+
+        type: "broadcast",
+
+        event: "player-movement",
+
+        payload: {
+
+            playerId,
+
+            x,
+
+            y
+
+        }
+
+    });
+
 }

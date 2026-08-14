@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
@@ -12,7 +13,10 @@
 
     <title>JS Joust Controller</title>
 
-    <link rel="stylesheet" href="style.css">
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
 
 </head>
 
@@ -22,17 +26,28 @@
 
         <h1>JS JOUST</h1>
 
-        <label>
+        <p>
+            Your phone is your controller.
+        </p>
+
+
+        <label for="roomInput">
             Room Code
         </label>
 
+
         <input
             id="roomInput"
+            type="text"
             maxlength="6"
+            autocomplete="off"
             placeholder="ABC123"
         >
 
-        <button id="joinButton">
+
+        <button
+            id="joinButton"
+        >
             Join Game
         </button>
 
@@ -45,26 +60,48 @@
         </button>
 
 
-        <p id="status">
+        <div
+            id="status"
+            class="status"
+        >
             Enter a room code.
-        </p>
+        </div>
 
 
-        <div id="debug">
+        <div class="sensor-panel">
+
+            <h2>Sensor Debug</h2>
+
 
             <p>
-                Motion X:
-                <span id="gamma">0</span>
+                X:
+                <span id="gamma">
+                    0
+                </span>
             </p>
 
+
             <p>
-                Motion Y:
-                <span id="beta">0</span>
+                Y:
+                <span id="beta">
+                    0
+                </span>
             </p>
+
 
             <p>
                 Movement:
-                <span id="movement">0, 0</span>
+                <span id="movement">
+                    0, 0
+                </span>
+            </p>
+
+
+            <p>
+                Sensor:
+                <span id="sensorStatus">
+                    Not enabled
+                </span>
             </p>
 
         </div>
@@ -72,7 +109,9 @@
     </main>
 
 
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script
+        src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+    ></script>
 
     <script src="config.js"></script>
 

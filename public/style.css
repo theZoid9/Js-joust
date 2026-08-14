@@ -1,21 +1,397 @@
-#controller {
-    width: 100vw;
-    height: 70vh;
-
-    background: #222;
-
-    touch-action: none;
-
-    position: relative;
+* {
+    box-sizing: border-box;
 }
 
-#knob {
-    width: 80px;
-    height: 80px;
 
-    background: white;
+body {
+
+    margin: 0;
+
+    min-height: 100vh;
+
+    font-family:
+        Arial,
+        sans-serif;
+
+    background:
+        #101010;
+
+    color:
+        white;
+
+}
+
+
+/* ==========================================
+   HOME
+========================================== */
+
+.home {
+
+    min-height: 100vh;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+    align-items: center;
+
+    text-align: center;
+
+    padding: 20px;
+
+}
+
+
+.home h1 {
+
+    font-size: 60px;
+
+    margin-bottom: 10px;
+
+}
+
+
+.home-buttons {
+
+    display: flex;
+
+    gap: 15px;
+
+    margin-top: 30px;
+
+}
+
+
+/* ==========================================
+   BUTTONS
+========================================== */
+
+button,
+.button {
+
+    display: inline-block;
+
+    padding:
+        15px 25px;
+
+    border: none;
+
+    border-radius: 10px;
+
+    background:
+        #238636;
+
+    color: white;
+
+    font-size: 18px;
+
+    text-decoration: none;
+
+    cursor: pointer;
+
+}
+
+
+button:disabled {
+
+    opacity: 0.4;
+
+    cursor: not-allowed;
+
+}
+
+
+.secondary {
+
+    background:
+        #444;
+
+}
+
+
+/* ==========================================
+   GAME HEADER
+========================================== */
+
+.game-header {
+
+    display: flex;
+
+    justify-content:
+        space-between;
+
+    align-items: center;
+
+    padding:
+        15px 25px;
+
+    background:
+        #181818;
+
+}
+
+
+.game-header h1 {
+
+    margin: 0;
+
+}
+
+
+.room-display {
+
+    text-align: center;
+
+}
+
+
+.room-display span {
+
+    display: block;
+
+    font-size: 12px;
+
+    color:
+        #aaa;
+
+}
+
+
+.room-display strong {
+
+    font-size: 28px;
+
+    letter-spacing:
+        4px;
+
+}
+
+
+/* ==========================================
+   STATUS
+========================================== */
+
+.status {
+
+    text-align: center;
+
+    padding: 15px;
+
+    color:
+        #aaa;
+
+}
+
+
+/* ==========================================
+   ARENA
+========================================== */
+
+#arena {
+
+    position: relative;
+
+    width: 800px;
+
+    height: 500px;
+
+    max-width: 95vw;
+
+    margin: auto;
+
+    border:
+        3px solid white;
+
+    border-radius: 15px;
+
+    background:
+        #1d1d1d;
+
+    overflow: hidden;
+
+}
+
+
+/* ==========================================
+   PLAYER
+========================================== */
+
+.player {
+
+    position: absolute;
+
+    width: 40px;
+
+    height: 40px;
 
     border-radius: 50%;
 
-    position: absolute;
+    background:
+        #2386ff;
+
+    display: flex;
+
+    justify-content: center;
+
+    align-items: center;
+
+    font-weight: bold;
+
+    color: white;
+
+    will-change:
+        transform;
+
+}
+
+
+/* ==========================================
+   CONTROLLER
+========================================== */
+
+.controller {
+
+    min-height: 100vh;
+
+    display: flex;
+
+    flex-direction: column;
+
+    justify-content: center;
+
+    align-items: center;
+
+    padding: 25px;
+
+    text-align: center;
+
+}
+
+
+.controller h1 {
+
+    font-size: 45px;
+
+}
+
+
+.controller input {
+
+    width: 220px;
+
+    padding: 15px;
+
+    margin:
+        10px 0;
+
+    border: none;
+
+    border-radius: 8px;
+
+    font-size: 22px;
+
+    text-align: center;
+
+    text-transform: uppercase;
+
+}
+
+
+.sensor-panel {
+
+    margin-top: 30px;
+
+    padding: 20px;
+
+    width: 280px;
+
+    border:
+        1px solid #444;
+
+    border-radius: 12px;
+
+    background:
+        #181818;
+
+}
+
+
+.sensor-panel span {
+
+    font-weight: bold;
+
+    color:
+        #58a6ff;
+
+}
+
+
+/* ==========================================
+   MOBILE
+========================================== */
+
+@media (
+    max-width: 600px
+) {
+
+    .home h1 {
+
+        font-size: 42px;
+
+    }
+
+
+    .home-buttons {
+
+        flex-direction: column;
+
+        width: 100%;
+
+        max-width: 300px;
+
+    }
+
+
+    .home-buttons a {
+
+        text-align: center;
+
+    }
+
+
+    .game-header {
+
+        font-size: 12px;
+
+        padding:
+            10px;
+
+    }
+
+
+    .game-header h1 {
+
+        font-size: 20px;
+
+    }
+
+
+    .room-display strong {
+
+        font-size: 18px;
+
+    }
+
+
+    #arena {
+
+        width: 95vw;
+
+        height: 70vh;
+
+    }
+
 }

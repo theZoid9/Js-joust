@@ -1,13 +1,6 @@
-const supabaseClient =
-    window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-    );
-
-
-// --------------------------------------------------
+// ==================================================
 // ROOM
-// --------------------------------------------------
+// ==================================================
 
 function createRoomCode() {
 
@@ -18,137 +11,77 @@ function createRoomCode() {
 
 }
 
-const roomCode = createRoomCode();
 
-document.getElementById("roomCode")
-    .textContent = roomCode;
+const roomCode =
+    createRoomCode();
 
+
+document.getElementById(
+    "roomCode"
+).textContent = roomCode;
+
+
+// ==================================================
+// SUPABASE CHANNEL
+// ==================================================
 
 const channel =
     supabaseClient.channel(
         `joust:${roomCode}`,
         {
             config: {
+
                 presence: {
                     key: "game-screen"
+                },
+
+                broadcast: {
+                    self: false
                 }
+
             }
         }
     );
 
 
-// --------------------------------------------------
+// ==================================================
 // GAME STATE
-// --------------------------------------------------
+// ==================================================
 
 const players = {};
 
-let gameStarted = false;
+const arena =
+    document.getElementById("arena");
 
 
-// --------------------------------------------------
-// RECEIVE MOVEMENT
-// --------------------------------------------------
+// ==================================================
+// SUPABASE CONNECTION
+// ==================================================
 
-channel.on(
-    "broadcast",
-    {
-        event: "player-movement"
-    },
-    ({ payload }) => {
-
-        const player =
-            players[payload.playerId];
-
-        if (!player) {
-            return;
-        }
-
-
-        player.input.x =
-            payload.x;
-
-        player.input.y =
-            payload.y;
-
-    }
-);
-
-
-// --------------------------------------------------
-// PRESENCE
-// --------------------------------------------------
-
-channel.on(
-    "presence",
-    {
-        event: "sync"
-    },
-    () => {
-
-        const state =
-            channel.presenceState();
-
-        console.log(
-            "Players:",
-            state
-        );
-
-        updatePlayerCount(state);
-
-    }
-);
-
-
-function updatePlayerCount(state) {
-
-    let count = 0;
-
-    Object.values(state)
-        .forEach(entries => {
-
-            entries.forEach(entry => {
-
-                if (
-                    entry.type === "player"
-                ) {
-                    count++;
-                }
-
-            });
-
-        });
-
-
-    document.getElementById(
-        "playerCount"
-    ).textContent = count;
-
-}
-
-
-// --------------------------------------------------
-// CHANNEL CONNECTION
-// --------------------------------------------------
-
-channel.subscribe(async status => {
+channel.subscribe(async (status) => {
 
     console.log(
-        "Supabase:",
+        "Supabase status:",
         status
     );
 
 
     if (status === "SUBSCRIBED") {
 
-        document.getElementById("status")
-            .textContent =
-            "Waiting for players...";
+        console.log(
+            "Game connected to Supabase"
+        );
+
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "Room ready - waiting for players";
 
 
         await channel.track({
 
-            type: "game",
+            type: "game-screen",
 
             roomCode
 
@@ -159,9 +92,87 @@ channel.subscribe(async status => {
 });
 
 
-// --------------------------------------------------
-// CREATE PLAYER WHEN PRESENCE CHANGES
-// --------------------------------------------------
+// ==================================================
+// PLAYER MOVEMENT
+// ==================================================
+
+channel.on(
+    "broadcast",
+    {
+        event: "player-movement"
+    },
+    ({ payload }) => {
+
+        console.log(
+            "Movement received:",
+            payload
+        );
+
+
+        const player =
+            players[payload.playerId];
+
+
+        if (!player) {
+
+            console.warn(
+                "Unknown player:",
+                payload.playerId
+            );
+
+            return;
+
+        }
+
+
+        player.input.x =
+            Number(payload.x) || 0;
+
+
+        player.input.y =
+            Number(payload.y) || 0;
+
+    }
+);
+
+
+// ==================================================
+// PRESENCE SYNC
+// ==================================================
+
+channel.on(
+    "presence",
+    {
+        event: "sync"
+    },
+    () => {
+
+        console.log(
+            "Presence sync"
+        );
+
+
+        const state =
+            channel.presenceState();
+
+
+        console.log(
+            "Presence state:",
+            state
+        );
+
+
+        rebuildPlayers(
+            state
+        );
+
+    }
+);
+
+
+// ==================================================
+// PLAYER JOIN
+// ==================================================
 
 channel.on(
     "presence",
@@ -170,39 +181,210 @@ channel.on(
     },
     ({ key, newPresences }) => {
 
-        newPresences.forEach(playerInfo => {
+        console.log(
+            "Presence join:",
+            key,
+            newPresences
+        );
 
-            if (
-                playerInfo.type !== "player"
-            ) {
-                return;
+
+        newPresences.forEach(
+            presence => {
+
+                if (
+                    presence.type !==
+                    "player"
+                ) {
+
+                    return;
+
+                }
+
+
+                createPlayer(
+                    presence.playerId
+                );
+
             }
-
-
-            createPlayer(
-                playerInfo.playerId
-            );
-
-        });
+        );
 
     }
 );
 
 
+// ==================================================
+// PLAYER LEAVE
+// ==================================================
+
+channel.on(
+    "presence",
+    {
+        event: "leave"
+    },
+    ({ key, leftPresences }) => {
+
+        console.log(
+            "Player left:",
+            key,
+            leftPresences
+        );
+
+
+        leftPresences.forEach(
+            presence => {
+
+                if (
+                    presence.type !==
+                    "player"
+                ) {
+
+                    return;
+
+                }
+
+
+                removePlayer(
+                    presence.playerId
+                );
+
+            }
+        );
+
+    }
+);
+
+
+// ==================================================
+// REBUILD PLAYERS
+// ==================================================
+
+function rebuildPlayers(state) {
+
+    const activePlayers =
+        new Set();
+
+
+    Object.values(state)
+        .forEach(presenceList => {
+
+            presenceList.forEach(
+                presence => {
+
+                    if (
+                        presence.type !==
+                        "player"
+                    ) {
+
+                        return;
+
+                    }
+
+
+                    activePlayers.add(
+                        presence.playerId
+                    );
+
+
+                    createPlayer(
+                        presence.playerId
+                    );
+
+                }
+            );
+
+        });
+
+
+    Object.keys(players)
+        .forEach(playerId => {
+
+            if (
+                !activePlayers.has(
+                    playerId
+                )
+            ) {
+
+                removePlayer(
+                    playerId
+                );
+
+            }
+
+        });
+
+
+    updatePlayerCount();
+
+}
+
+
+// ==================================================
+// CREATE PLAYER
+// ==================================================
+
 function createPlayer(playerId) {
 
-    if (players[playerId]) {
+    if (
+        players[playerId]
+    ) {
+
         return;
+
     }
+
+
+    console.log(
+        "Creating player:",
+        playerId
+    );
+
+
+    const element =
+        document.createElement("div");
+
+
+    element.className =
+        "player";
+
+
+    const playerNumber =
+        Object.keys(players).length + 1;
+
+
+    element.textContent =
+        playerNumber;
+
+
+    arena.appendChild(
+        element
+    );
+
+
+    const arenaWidth =
+        arena.clientWidth;
+
+
+    const arenaHeight =
+        arena.clientHeight;
 
 
     players[playerId] = {
 
         id: playerId,
 
-        x: Math.random() * 700 + 50,
+        x:
+            Math.random() *
+            Math.max(
+                1,
+                arenaWidth - 60
+            ),
 
-        y: Math.random() * 400 + 50,
+        y:
+            Math.random() *
+            Math.max(
+                1,
+                arenaHeight - 60
+            ),
 
         input: {
 
@@ -214,77 +396,96 @@ function createPlayer(playerId) {
 
         speed: 4,
 
-        element: null
+        element
 
     };
 
 
-    renderPlayer(
-        players[playerId]
-    );
+    updatePlayerCount();
 
 }
 
 
-// --------------------------------------------------
-// RENDER
-// --------------------------------------------------
+// ==================================================
+// REMOVE PLAYER
+// ==================================================
 
-function renderPlayer(player) {
+function removePlayer(playerId) {
 
-    const arena =
-        document.getElementById("arena");
-
-
-    const element =
-        document.createElement("div");
+    const player =
+        players[playerId];
 
 
-    element.className =
-        "player";
+    if (!player) {
+
+        return;
+
+    }
 
 
-    element.textContent =
-        player.id.slice(-2);
+    player.element.remove();
 
 
-    arena.appendChild(
-        element
-    );
+    delete players[playerId];
 
 
-    player.element =
-        element;
+    updatePlayerCount();
 
 }
 
 
-function renderPlayers() {
+// ==================================================
+// PLAYER COUNT
+// ==================================================
 
-    Object.values(players)
-        .forEach(player => {
+function updatePlayerCount() {
 
-            if (!player.element) {
-                return;
-            }
+    const count =
+        Object.keys(players).length;
 
 
-            player.element.style.transform =
-                `translate(
-                    ${player.x}px,
-                    ${player.y}px
-                )`;
+    document.getElementById(
+        "playerCount"
+    ).textContent =
+        count;
 
-        });
+
+    if (count === 0) {
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            "Room ready - waiting for players";
+
+    }
+
+    else {
+
+        document.getElementById(
+            "status"
+        ).textContent =
+            `${count} player${
+                count === 1 ? "" : "s"
+            } connected`;
+
+    }
 
 }
 
 
-// --------------------------------------------------
-// GAME UPDATE
-// --------------------------------------------------
+// ==================================================
+// UPDATE GAME
+// ==================================================
 
 function updateGame() {
+
+    const arenaWidth =
+        arena.clientWidth;
+
+
+    const arenaHeight =
+        arena.clientHeight;
+
 
     Object.values(players)
         .forEach(player => {
@@ -299,13 +500,19 @@ function updateGame() {
                 player.speed;
 
 
-            // Keep inside arena
+            const maxX =
+                arenaWidth - 40;
+
+
+            const maxY =
+                arenaHeight - 40;
+
 
             player.x =
                 Math.max(
                     0,
                     Math.min(
-                        760,
+                        maxX,
                         player.x
                     )
                 );
@@ -315,7 +522,7 @@ function updateGame() {
                 Math.max(
                     0,
                     Math.min(
-                        460,
+                        maxY,
                         player.y
                     )
                 );
@@ -325,9 +532,29 @@ function updateGame() {
 }
 
 
-// --------------------------------------------------
+// ==================================================
+// RENDER
+// ==================================================
+
+function renderPlayers() {
+
+    Object.values(players)
+        .forEach(player => {
+
+            player.element.style.transform =
+                `translate(
+                    ${player.x}px,
+                    ${player.y}px
+                )`;
+
+        });
+
+}
+
+
+// ==================================================
 // GAME LOOP
-// --------------------------------------------------
+// ==================================================
 
 function gameLoop() {
 
@@ -340,5 +567,6 @@ function gameLoop() {
     );
 
 }
+
 
 gameLoop();
