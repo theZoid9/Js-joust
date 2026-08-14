@@ -1,5 +1,5 @@
 // ==================================================
-// ROOM
+// CREATE ROOM
 // ==================================================
 
 function createRoomCode() {
@@ -16,13 +16,12 @@ const roomCode =
     createRoomCode();
 
 
-document.getElementById(
-    "roomCode"
-).textContent = roomCode;
+document.getElementById("roomCode")
+    .textContent = roomCode;
 
 
 // ==================================================
-// SUPABASE CHANNEL
+// CREATE CHANNEL
 // ==================================================
 
 const channel =
@@ -55,85 +54,9 @@ const arena =
 
 
 // ==================================================
-// SUPABASE CONNECTION
+// IMPORTANT:
+// REGISTER ALL LISTENERS BEFORE subscribe()
 // ==================================================
-
-channel.subscribe(async (status) => {
-
-    console.log(
-        "Supabase status:",
-        status
-    );
-
-
-    if (status === "SUBSCRIBED") {
-
-        console.log(
-            "Game connected to Supabase"
-        );
-
-
-        document.getElementById(
-            "status"
-        ).textContent =
-            "Room ready - waiting for players";
-
-
-        await channel.track({
-
-            type: "game-screen",
-
-            roomCode
-
-        });
-
-    }
-
-});
-
-
-// ==================================================
-// PLAYER MOVEMENT
-// ==================================================
-
-channel.on(
-    "broadcast",
-    {
-        event: "player-movement"
-    },
-    ({ payload }) => {
-
-        console.log(
-            "Movement received:",
-            payload
-        );
-
-
-        const player =
-            players[payload.playerId];
-
-
-        if (!player) {
-
-            console.warn(
-                "Unknown player:",
-                payload.playerId
-            );
-
-            return;
-
-        }
-
-
-        player.input.x =
-            Number(payload.x) || 0;
-
-
-        player.input.y =
-            Number(payload.y) || 0;
-
-    }
-);
 
 
 // ==================================================
@@ -148,7 +71,7 @@ channel.on(
     () => {
 
         console.log(
-            "Presence sync"
+            "PRESENCE SYNC"
         );
 
 
@@ -157,7 +80,7 @@ channel.on(
 
 
         console.log(
-            "Presence state:",
+            "PRESENCE STATE:",
             state
         );
 
@@ -182,7 +105,7 @@ channel.on(
     ({ key, newPresences }) => {
 
         console.log(
-            "Presence join:",
+            "PLAYER JOIN:",
             key,
             newPresences
         );
@@ -224,7 +147,7 @@ channel.on(
     ({ key, leftPresences }) => {
 
         console.log(
-            "Player left:",
+            "PLAYER LEAVE:",
             key,
             leftPresences
         );
@@ -255,10 +178,148 @@ channel.on(
 
 
 // ==================================================
+// PLAYER MOVEMENT
+// ==================================================
+
+channel.on(
+    "broadcast",
+    {
+        event: "player-movement"
+    },
+    ({ payload }) => {
+
+        console.log(
+            "MOVEMENT RECEIVED:",
+            payload
+        );
+
+
+        const player =
+            players[
+                payload.playerId
+            ];
+
+
+        if (!player) {
+
+            console.warn(
+                "Movement for unknown player:",
+                payload.playerId
+            );
+
+            return;
+
+        }
+
+
+        player.input.x =
+            Number(payload.x) || 0;
+
+
+        player.input.y =
+            Number(payload.y) || 0;
+
+    }
+);
+
+
+// ==================================================
+// NOW SUBSCRIBE
+// ==================================================
+
+channel.subscribe(
+    async (status) => {
+
+        console.log(
+            "SUPABASE STATUS:",
+            status
+        );
+
+
+        if (
+            status ===
+            "SUBSCRIBED"
+        ) {
+
+            console.log(
+                "GAME CONNECTED TO SUPABASE"
+            );
+
+
+            document.getElementById(
+                "status"
+            ).textContent =
+                `Room ${roomCode} ready`;
+
+
+            const result =
+                await channel.track({
+
+                    type:
+                        "game-screen",
+
+                    roomCode
+
+                });
+
+
+            console.log(
+                "GAME PRESENCE TRACK RESULT:",
+                result
+            );
+
+        }
+
+
+        if (
+            status ===
+            "CHANNEL_ERROR"
+        ) {
+
+            console.error(
+                "SUPABASE CHANNEL ERROR"
+            );
+
+
+            document.getElementById(
+                "status"
+            ).textContent =
+                "Supabase connection failed.";
+
+        }
+
+
+        if (
+            status ===
+            "TIMED_OUT"
+        ) {
+
+            console.error(
+                "SUPABASE CONNECTION TIMED OUT"
+            );
+
+
+            document.getElementById(
+                "status"
+            ).textContent =
+                "Supabase connection timed out.";
+
+        }
+
+    }
+);
+
+
+// ==================================================
 // REBUILD PLAYERS
 // ==================================================
 
 function rebuildPlayers(state) {
+
+    console.log(
+        "REBUILDING PLAYERS"
+    );
+
 
     const activePlayers =
         new Set();
@@ -269,6 +330,12 @@ function rebuildPlayers(state) {
 
             presenceList.forEach(
                 presence => {
+
+                    console.log(
+                        "Presence:",
+                        presence
+                    );
+
 
                     if (
                         presence.type !==
@@ -334,7 +401,7 @@ function createPlayer(playerId) {
 
 
     console.log(
-        "Creating player:",
+        "CREATING PLAYER:",
         playerId
     );
 
@@ -347,25 +414,13 @@ function createPlayer(playerId) {
         "player";
 
 
-    const playerNumber =
-        Object.keys(players).length + 1;
-
-
     element.textContent =
-        playerNumber;
+        Object.keys(players).length + 1;
 
 
     arena.appendChild(
         element
     );
-
-
-    const arenaWidth =
-        arena.clientWidth;
-
-
-    const arenaHeight =
-        arena.clientHeight;
 
 
     players[playerId] = {
@@ -376,14 +431,14 @@ function createPlayer(playerId) {
             Math.random() *
             Math.max(
                 1,
-                arenaWidth - 60
+                arena.clientWidth - 60
             ),
 
         y:
             Math.random() *
             Math.max(
                 1,
-                arenaHeight - 60
+                arena.clientHeight - 60
             ),
 
         input: {
@@ -425,7 +480,6 @@ function removePlayer(playerId) {
 
     player.element.remove();
 
-
     delete players[playerId];
 
 
@@ -455,7 +509,7 @@ function updatePlayerCount() {
         document.getElementById(
             "status"
         ).textContent =
-            "Room ready - waiting for players";
+            `Room ${roomCode} ready - waiting for players`;
 
     }
 
@@ -465,7 +519,9 @@ function updatePlayerCount() {
             "status"
         ).textContent =
             `${count} player${
-                count === 1 ? "" : "s"
+                count === 1
+                    ? ""
+                    : "s"
             } connected`;
 
     }
@@ -474,16 +530,15 @@ function updatePlayerCount() {
 
 
 // ==================================================
-// UPDATE GAME
+// GAME UPDATE
 // ==================================================
 
 function updateGame() {
 
-    const arenaWidth =
+    const width =
         arena.clientWidth;
 
-
-    const arenaHeight =
+    const height =
         arena.clientHeight;
 
 
@@ -500,19 +555,11 @@ function updateGame() {
                 player.speed;
 
 
-            const maxX =
-                arenaWidth - 40;
-
-
-            const maxY =
-                arenaHeight - 40;
-
-
             player.x =
                 Math.max(
                     0,
                     Math.min(
-                        maxX,
+                        width - 40,
                         player.x
                     )
                 );
@@ -522,7 +569,7 @@ function updateGame() {
                 Math.max(
                     0,
                     Math.min(
-                        maxY,
+                        height - 40,
                         player.y
                     )
                 );
