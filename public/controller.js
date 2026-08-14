@@ -55,21 +55,40 @@ joinButton.addEventListener(
 
 async function joinRoom() {
 
+    console.log("JOIN BUTTON CLICKED");
+
+
     const roomCode =
         roomInput.value
             .trim()
             .toUpperCase();
 
 
-    if (
-        roomCode.length !== 6
-    ) {
+    console.log(
+        "Room code:",
+        roomCode
+    );
+
+
+    if (roomCode.length !== 6) {
 
         status.textContent =
             "Room code must be 6 characters.";
 
         return;
+    }
 
+
+    if (!supabaseClient) {
+
+        console.error(
+            "Supabase client does not exist"
+        );
+
+        status.textContent =
+            "Supabase is not configured.";
+
+        return;
     }
 
 
@@ -83,35 +102,36 @@ async function joinRoom() {
     );
 
 
+    const channelName =
+        `joust:${roomCode}`;
+
+
+    console.log(
+        "Joining channel:",
+        channelName
+    );
+
+
     channel =
         supabaseClient.channel(
-            `joust:${roomCode}`,
+            channelName,
             {
                 config: {
 
                     presence: {
-
                         key: playerId
-
-                    },
-
-                    broadcast: {
-
-                        self: false
-
                     }
 
                 }
-
             }
         );
 
 
     channel.subscribe(
-        async statusValue => {
+        async (statusValue) => {
 
             console.log(
-                "Supabase:",
+                "Supabase status:",
                 statusValue
             );
 
@@ -121,30 +141,65 @@ async function joinRoom() {
                 "SUBSCRIBED"
             ) {
 
-                status.textContent =
-                    "Connected to room.";
+                console.log(
+                    "SUCCESSFULLY JOINED ROOM"
+                );
 
 
-                await channel.track({
+                const result =
+                    await channel.track({
 
-                    type: "player",
+                        type: "player",
 
-                    playerId
+                        playerId
 
-                });
+                    });
 
 
                 console.log(
-                    "Presence tracked"
+                    "Presence result:",
+                    result
                 );
+
+
+                status.textContent =
+                    "Joined room successfully!";
 
 
                 motionButton.disabled =
                     false;
 
+            }
+
+
+            if (
+                statusValue ===
+                "CHANNEL_ERROR"
+            ) {
+
+                console.error(
+                    "CHANNEL ERROR"
+                );
+
 
                 status.textContent =
-                    "Connected. Enable motion.";
+                    "Could not connect to room.";
+
+            }
+
+
+            if (
+                statusValue ===
+                "TIMED_OUT"
+            ) {
+
+                console.error(
+                    "SUPABASE TIMED OUT"
+                );
+
+
+                status.textContent =
+                    "Connection timed out.";
 
             }
 
