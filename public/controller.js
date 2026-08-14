@@ -405,3 +405,176 @@ function createRoomCode() {
         .toUpperCase();
 
 }
+
+function handleMotion(event) {
+
+    console.log("Device motion event fired");
+
+    const acceleration =
+        event.accelerationIncludingGravity;
+
+    if (!acceleration) {
+        console.log("No acceleration data");
+        return;
+    }
+
+
+    console.log(
+        "Acceleration:",
+        acceleration.x,
+        acceleration.y,
+        acceleration.z
+    );
+
+}
+async function enableMotion() {
+
+    console.log("Enable Motion clicked");
+
+    try {
+
+        // iPhone / iPad
+        if (
+            typeof DeviceMotionEvent !== "undefined" &&
+            typeof DeviceMotionEvent.requestPermission === "function"
+        ) {
+
+            const motionPermission =
+                await DeviceMotionEvent.requestPermission();
+
+            console.log(
+                "Motion permission:",
+                motionPermission
+            );
+
+            if (motionPermission !== "granted") {
+
+                status.textContent =
+                    "Motion permission denied";
+
+                return;
+            }
+        }
+
+
+        // Orientation permission
+        if (
+            typeof DeviceOrientationEvent !== "undefined" &&
+            typeof DeviceOrientationEvent.requestPermission === "function"
+        ) {
+
+            const orientationPermission =
+                await DeviceOrientationEvent.requestPermission();
+
+            console.log(
+                "Orientation permission:",
+                orientationPermission
+            );
+
+            if (orientationPermission !== "granted") {
+
+                status.textContent =
+                    "Orientation permission denied";
+
+                return;
+            }
+        }
+
+
+        // Start listening
+
+        window.addEventListener(
+            "devicemotion",
+            handleMotion
+        );
+
+        window.addEventListener(
+            "deviceorientation",
+            handleOrientation
+        );
+
+
+        motionEnabled = true;
+
+        motionButton.textContent =
+            "Motion Enabled";
+
+        status.textContent =
+            "Move your phone!";
+
+
+        console.log(
+            "Motion sensors enabled"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Motion permission error:",
+            error
+        );
+
+        status.textContent =
+            `Motion error: ${error.message}`;
+
+    }
+}
+
+
+function handleOrientation(event) {
+
+    console.log(
+        "Orientation:",
+        event.beta,
+        event.gamma
+    );
+
+    const beta = event.beta || 0;
+    const gamma = event.gamma || 0;
+
+
+    document.getElementById("beta")
+        .textContent =
+        beta.toFixed(1);
+
+    document.getElementById("gamma")
+        .textContent =
+        gamma.toFixed(1);
+
+
+    // Phone tilted left/right
+    let x = gamma / 30;
+
+    // Phone tilted forward/backward
+    let y = (beta - 45) / 30;
+
+
+    x = Math.max(
+        -1,
+        Math.min(1, x)
+    );
+
+    y = Math.max(
+        -1,
+        Math.min(1, y)
+    );
+
+
+    // Dead zone
+
+    if (Math.abs(x) < 0.15) {
+        x = 0;
+    }
+
+    if (Math.abs(y) < 0.15) {
+        y = 0;
+    }
+
+
+    document.getElementById("movement")
+        .textContent =
+        `${x.toFixed(2)}, ${y.toFixed(2)}`;
+
+
+    sendMovement(x, y);
+}
