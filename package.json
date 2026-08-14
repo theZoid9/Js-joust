@@ -1,3 +1,14 @@
-"scripts": {
-  "start": "node server.js"
+{
+  "name": "js-joust",
+  "version": "1.0.0",
+  "description": "Mobile multiplayer JS Joust game using WebSockets",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "ws": "^8.18.0"
+  }
 }
