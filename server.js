@@ -1,7 +1,6 @@
 require("dotenv").config();
 
-const express = require("express");
-const path = require("path");
+import { join } from "path";
 
 const app = express();
 
@@ -9,7 +8,7 @@ const PORT =
     process.env.PORT || 3000;
 
 const publicPath =
-    path.join(__dirname, "public");
+    join(__dirname, "public");
 
 
 // ==========================================
@@ -17,7 +16,7 @@ const publicPath =
 // ==========================================
 
 app.use(
-    express.static(publicPath)
+    static(publicPath)
 );
 
 
@@ -53,7 +52,7 @@ app.get("/config.js", (req, res) => {
 app.get("/", (req, res) => {
 
     res.sendFile(
-        path.join(
+        join(
             publicPath,
             "index.html"
         )
@@ -65,7 +64,7 @@ app.get("/", (req, res) => {
 app.get("/game", (req, res) => {
 
     res.sendFile(
-        path.join(
+        join(
             publicPath,
             "game.html"
         )
@@ -77,7 +76,7 @@ app.get("/game", (req, res) => {
 app.get("/controller", (req, res) => {
 
     res.sendFile(
-        path.join(
+        join(
             publicPath,
             "controller.html"
         )
