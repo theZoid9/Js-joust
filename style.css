@@ -1,0 +1,87 @@
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    background: #111;
+    color: white;
+    font-family: Arial, sans-serif;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    min-height: 100vh;
+}
+
+.game-container {
+    text-align: center;
+}
+
+h1 {
+    margin-bottom: 10px;
+}
+
+.status {
+    display: flex;
+    justify-content: space-between;
+
+    width: 800px;
+    margin-bottom: 10px;
+}
+
+#phase {
+    font-weight: bold;
+}
+
+#arena {
+    position: relative;
+
+    width: 800px;
+    height: 500px;
+
+    background: #222;
+
+    border: 3px solid white;
+    overflow: hidden;
+}
+
+.player {
+    position: absolute;
+
+    width: 40px;
+    height: 40px;
+
+    border-radius: 50%;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-size: 9px;
+    font-weight: bold;
+
+    user-select: none;
+}
+
+.human {
+    background: dodgerblue;
+}
+
+.enemy {
+    background: crimson;
+}
+
+.player.dead {
+    display: none;
+}
+
+.instructions {
+    color: #aaa;
+}
+
+button {
+    padding: 10px 20px;
+    cursor: pointer;
+}
