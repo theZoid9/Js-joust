@@ -1,26 +1,54 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 
 <head>
-    <title>JS Joust</title>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>JS Joust Game</title>
 
     <link rel="stylesheet" href="style.css">
+
 </head>
 
 <body>
 
-    <h1>JS JOUST</h1>
+    <header class="game-header">
 
-    <div id="phase">
-        WAITING
-    </div>
+        <h1>JS JOUST</h1>
 
-    <div id="arena"></div>
+        <div>
+            Room:
+            <strong id="roomCode"></strong>
+        </div>
 
-    <button id="start">
-        START GAME
-    </button>
+        <div>
+            Players:
+            <strong id="playerCount">0</strong>
+        </div>
+
+    </header>
+
+
+    <main>
+
+        <div id="status">
+            Waiting for players...
+        </div>
+
+        <div id="arena"></div>
+
+    </main>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script src="config.js"></script>
 
     <script src="game.js"></script>
 

@@ -1,145 +1,275 @@
-const socket = new WebSocket(
-    `wss://${location.host}`
-);
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
 
 
-const arena = document.getElementById("arena");
-const phaseDisplay = document.getElementById("phase");
-const startButton = document.getElementById("start");
+// --------------------------------------------------
+// ROOM
+// --------------------------------------------------
 
+function createRoomCode() {
+
+    return Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase();
+
+}
+
+const roomCode = createRoomCode();
+
+document.getElementById("roomCode")
+    .textContent = roomCode;
+
+
+const channel =
+    supabaseClient.channel(
+        `joust:${roomCode}`,
+        {
+            config: {
+                presence: {
+                    key: "game-screen"
+                }
+            }
+        }
+    );
+
+
+// --------------------------------------------------
+// GAME STATE
+// --------------------------------------------------
 
 const players = {};
 
-
-socket.addEventListener("open", () => {
-
-    console.log("Connected to server");
-
-});
+let gameStarted = false;
 
 
-socket.addEventListener("message", event => {
+// --------------------------------------------------
+// RECEIVE MOVEMENT
+// --------------------------------------------------
 
-    const message = JSON.parse(event.data);
+channel.on(
+    "broadcast",
+    {
+        event: "player-movement"
+    },
+    ({ payload }) => {
 
+        const player =
+            players[payload.playerId];
 
-    if (message.type === "state") {
-
-        renderGame(message.state);
-
-    }
-
-
-    if (message.type === "phase") {
-
-        phaseDisplay.textContent =
-            message.phase.toUpperCase();
-
-    }
-
-});
-
-
-function renderGame(state) {
-
-    phaseDisplay.textContent =
-        state.phase.toUpperCase();
-
-
-    Object.values(state.players).forEach(player => {
-
-        let element = players[player.id];
-
-
-        if (!element) {
-
-            element = document.createElement("div");
-
-            element.className = "player";
-
-            element.textContent =
-                player.id;
-
-            arena.appendChild(element);
-
-            players[player.id] = element;
-
+        if (!player) {
+            return;
         }
 
 
-        element.style.left =
-            `${player.x}px`;
+        player.input.x =
+            payload.x;
 
-        element.style.top =
-            `${player.y}px`;
+        player.input.y =
+            payload.y;
+
+    }
+);
 
 
-        if (!player.alive) {
+// --------------------------------------------------
+// PRESENCE
+// --------------------------------------------------
 
-            element.style.display = "none";
+channel.on(
+    "presence",
+    {
+        event: "sync"
+    },
+    () => {
 
-        }
+        const state =
+            channel.presenceState();
 
-    });
+        console.log(
+            "Players:",
+            state
+        );
+
+        updatePlayerCount(state);
+
+    }
+);
+
+
+function updatePlayerCount(state) {
+
+    let count = 0;
+
+    Object.values(state)
+        .forEach(entries => {
+
+            entries.forEach(entry => {
+
+                if (
+                    entry.type === "player"
+                ) {
+                    count++;
+                }
+
+            });
+
+        });
+
+
+    document.getElementById(
+        "playerCount"
+    ).textContent = count;
 
 }
 
 
-startButton.addEventListener("click", () => {
+// --------------------------------------------------
+// CHANNEL CONNECTION
+// --------------------------------------------------
 
-    socket.send(JSON.stringify({
-        type: "start"
-    }));
+channel.subscribe(async status => {
+
+    console.log(
+        "Supabase:",
+        status
+    );
+
+
+    if (status === "SUBSCRIBED") {
+
+        document.getElementById("status")
+            .textContent =
+            "Waiting for players...";
+
+
+        await channel.track({
+
+            type: "game",
+
+            roomCode
+
+        });
+
+    }
 
 });
 
 
-socket.addEventListener(
-    "message",
-    event => {
+// --------------------------------------------------
+// CREATE PLAYER WHEN PRESENCE CHANGES
+// --------------------------------------------------
 
-        const message =
-            JSON.parse(event.data);
+channel.on(
+    "presence",
+    {
+        event: "join"
+    },
+    ({ key, newPresences }) => {
+
+        newPresences.forEach(playerInfo => {
+
+            if (
+                playerInfo.type !== "player"
+            ) {
+                return;
+            }
 
 
-        if (message.type === "state") {
-
-            renderGame(
-                message.state
+            createPlayer(
+                playerInfo.playerId
             );
 
-        }
+        });
 
     }
 );
 
 
-function renderGame(state) {
+function createPlayer(playerId) {
 
-    Object.values(state.players)
+    if (players[playerId]) {
+        return;
+    }
+
+
+    players[playerId] = {
+
+        id: playerId,
+
+        x: Math.random() * 700 + 50,
+
+        y: Math.random() * 400 + 50,
+
+        input: {
+
+            x: 0,
+
+            y: 0
+
+        },
+
+        speed: 4,
+
+        element: null
+
+    };
+
+
+    renderPlayer(
+        players[playerId]
+    );
+
+}
+
+
+// --------------------------------------------------
+// RENDER
+// --------------------------------------------------
+
+function renderPlayer(player) {
+
+    const arena =
+        document.getElementById("arena");
+
+
+    const element =
+        document.createElement("div");
+
+
+    element.className =
+        "player";
+
+
+    element.textContent =
+        player.id.slice(-2);
+
+
+    arena.appendChild(
+        element
+    );
+
+
+    player.element =
+        element;
+
+}
+
+
+function renderPlayers() {
+
+    Object.values(players)
         .forEach(player => {
 
-            let element =
-                players[player.id];
-
-
-            if (!element) {
-
-                element =
-                    document.createElement("div");
-
-                element.className =
-                    "player";
-
-                arena.appendChild(element);
-
-                players[player.id] =
-                    element;
-
+            if (!player.element) {
+                return;
             }
 
 
-            element.style.transform =
+            player.element.style.transform =
                 `translate(
                     ${player.x}px,
                     ${player.y}px
@@ -148,3 +278,67 @@ function renderGame(state) {
         });
 
 }
+
+
+// --------------------------------------------------
+// GAME UPDATE
+// --------------------------------------------------
+
+function updateGame() {
+
+    Object.values(players)
+        .forEach(player => {
+
+            player.x +=
+                player.input.x *
+                player.speed;
+
+
+            player.y +=
+                player.input.y *
+                player.speed;
+
+
+            // Keep inside arena
+
+            player.x =
+                Math.max(
+                    0,
+                    Math.min(
+                        760,
+                        player.x
+                    )
+                );
+
+
+            player.y =
+                Math.max(
+                    0,
+                    Math.min(
+                        460,
+                        player.y
+                    )
+                );
+
+        });
+
+}
+
+
+// --------------------------------------------------
+// GAME LOOP
+// --------------------------------------------------
+
+function gameLoop() {
+
+    updateGame();
+
+    renderPlayers();
+
+    requestAnimationFrame(
+        gameLoop
+    );
+
+}
+
+gameLoop();

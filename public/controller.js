@@ -1,134 +1,195 @@
-const protocol =
-    window.location.protocol === "https:"
-        ? "wss:"
-        : "ws:";
+const supabaseClient =
+    window.supabase.createClient(
+        SUPABASE_URL,
+        SUPABASE_KEY
+    );
 
-const socket = new WebSocket(
-    `${protocol}//${window.location.host}`
-);
+
+let channel = null;
 
 let playerId = null;
+
 let motionEnabled = false;
 
 
-// -------------------------
-// WebSocket
-// -------------------------
+// --------------------------------------------------
+// ELEMENTS
+// --------------------------------------------------
 
-socket.addEventListener("open", () => {
+const roomInput =
+    document.getElementById("roomInput");
 
-    console.log("Connected");
+const joinButton =
+    document.getElementById("joinButton");
 
-    document.getElementById("status")
-        .textContent = "Connected";
+const motionButton =
+    document.getElementById("motionButton");
 
-    socket.send(JSON.stringify({
-        type: "join"
-    }));
-
-});
-
-
-socket.addEventListener("message", (event) => {
-
-    const message = JSON.parse(event.data);
-
-    console.log("Server:", message);
-
-    if (message.type === "joined") {
-
-        playerId = message.playerId;
-
-        console.log(
-            "My player ID:",
-            playerId
-        );
-    }
-
-});
+const status =
+    document.getElementById("status");
 
 
-socket.addEventListener("error", (error) => {
+// --------------------------------------------------
+// JOIN ROOM
+// --------------------------------------------------
 
-    console.error(
-        "WebSocket error:",
-        error
-    );
-
-});
-
-
-// -------------------------
-// Enable phone motion
-// -------------------------
-
-const enableButton =
-    document.getElementById("enableMotion");
-
-
-enableButton.addEventListener(
+joinButton.addEventListener(
     "click",
-    async () => {
-
-        try {
-
-            // iPhone requires permission
-            if (
-                typeof DeviceOrientationEvent !==
-                "undefined" &&
-                typeof DeviceOrientationEvent.requestPermission ===
-                "function"
-            ) {
-
-                const permission =
-                    await DeviceOrientationEvent
-                        .requestPermission();
-
-                if (permission !== "granted") {
-
-                    alert(
-                        "Motion permission was denied."
-                    );
-
-                    return;
-                }
-            }
-
-
-            motionEnabled = true;
-
-            enableButton.textContent =
-                "Motion Enabled";
-
-            document.getElementById("status")
-                .textContent =
-                "Tilt your phone to move";
-
-
-            window.addEventListener(
-                "deviceorientation",
-                handleMotion
-            );
-
-        } catch (error) {
-
-            console.error(error);
-
-            alert(
-                "Could not enable motion."
-            );
-
-        }
-
-    }
+    joinRoom
 );
 
 
-// -------------------------
-// Read phone movement
-// -------------------------
+async function joinRoom() {
 
-function handleMotion(event) {
+    const roomCode =
+        roomInput.value
+            .trim()
+            .toUpperCase();
+
+
+    if (roomCode.length !== 6) {
+
+        status.textContent =
+            "Enter a 6-character room code.";
+
+        return;
+    }
+
+
+    playerId =
+        crypto.randomUUID();
+
+
+    channel =
+        supabaseClient.channel(
+            `joust:${roomCode}`,
+            {
+                config: {
+                    presence: {
+                        key: playerId
+                    }
+                }
+            }
+        );
+
+
+    // Listen for connection
+
+    channel.subscribe(async statusValue => {
+
+        console.log(
+            "Supabase:",
+            statusValue
+        );
+
+
+        if (
+            statusValue ===
+            "SUBSCRIBED"
+        ) {
+
+            status.textContent =
+                "Joined room!";
+
+
+            // Tell the room
+            // that we're a player.
+
+            await channel.track({
+
+                type: "player",
+
+                playerId
+
+            });
+
+
+            motionButton.disabled =
+                false;
+
+        }
+
+    });
+
+}
+
+
+// --------------------------------------------------
+// MOTION PERMISSION
+// --------------------------------------------------
+
+motionButton.addEventListener(
+    "click",
+    enableMotion
+);
+
+
+async function enableMotion() {
+
+    try {
+
+        // iOS
+
+        if (
+            typeof DeviceOrientationEvent
+                .requestPermission ===
+            "function"
+        ) {
+
+            const permission =
+                await DeviceOrientationEvent
+                    .requestPermission();
+
+
+            if (
+                permission !==
+                "granted"
+            ) {
+
+                status.textContent =
+                    "Motion permission denied.";
+
+                return;
+            }
+
+        }
+
+
+        motionEnabled = true;
+
+
+        window.addEventListener(
+            "deviceorientation",
+            handleOrientation
+        );
+
+
+        motionButton.textContent =
+            "Motion Enabled";
+
+
+        status.textContent =
+            "Move your phone.";
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        status.textContent =
+            "Motion could not be enabled.";
+
+    }
+
+}
+
+
+// --------------------------------------------------
+// PHONE MOVEMENT
+// --------------------------------------------------
+
+function handleOrientation(event) {
 
     if (!motionEnabled) {
         return;
@@ -142,84 +203,90 @@ function handleMotion(event) {
         event.gamma || 0;
 
 
-    // Show values on screen
     document.getElementById("beta")
         .textContent =
         beta.toFixed(1);
+
 
     document.getElementById("gamma")
         .textContent =
         gamma.toFixed(1);
 
 
-    // Convert tilt into movement
+    // --------------------------------
+    // Convert tilt to movement
+    // --------------------------------
 
-    let moveX = 0;
-    let moveY = 0;
+    let x = gamma / 30;
+
+    let y = (beta - 45) / 30;
 
 
-    const deadZone = 8;
+    // Limit values between -1 and 1
+
+    x =
+        Math.max(
+            -1,
+            Math.min(1, x)
+        );
 
 
-    // LEFT / RIGHT
+    y =
+        Math.max(
+            -1,
+            Math.min(1, y)
+        );
 
-    if (gamma > deadZone) {
 
-        moveX = 1;
+    // Small dead zone
 
-    } else if (gamma < -deadZone) {
-
-        moveX = -1;
-
+    if (Math.abs(x) < 0.15) {
+        x = 0;
     }
 
 
-    // FORWARD / BACKWARD
-
-    if (beta > 60 + deadZone) {
-
-        moveY = 1;
-
-    } else if (beta < 60 - deadZone) {
-
-        moveY = -1;
-
+    if (Math.abs(y) < 0.15) {
+        y = 0;
     }
 
 
-    sendMovement(
-        moveX,
-        moveY
-    );
+    document.getElementById("movement")
+        .textContent =
+        `${x.toFixed(2)}, ${y.toFixed(2)}`;
+
+
+    sendMovement(x, y);
 
 }
 
 
-// -------------------------
-// Send movement
-// -------------------------
+// --------------------------------------------------
+// SEND MOVEMENT
+// --------------------------------------------------
 
 function sendMovement(x, y) {
 
-    if (!playerId) {
-        return;
-    }
-
-    if (socket.readyState !== WebSocket.OPEN) {
+    if (!channel) {
         return;
     }
 
 
-    socket.send(JSON.stringify({
+    channel.send({
 
-        type: "movement",
+        type: "broadcast",
 
-        playerId,
+        event: "player-movement",
 
-        x,
+        payload: {
 
-        y
+            playerId,
 
-    }));
+            x,
+
+            y
+
+        }
+
+    });
 
 }

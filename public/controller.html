@@ -1,15 +1,16 @@
 <!DOCTYPE html>
-
-<html>
+<html lang="en">
 
 <head>
 
+    <meta charset="UTF-8">
+
     <meta
         name="viewport"
-        content="width=device-width, initial-scale=1"
+        content="width=device-width, initial-scale=1.0"
     >
 
-    <title>Controller</title>
+    <title>JS Joust Controller</title>
 
     <link rel="stylesheet" href="style.css">
 
@@ -17,17 +18,65 @@
 
 <body>
 
-    <h1>JS JOUST</h1>
+    <main class="controller">
 
-    <p id="status">
-        Connecting...
-    </p>
+        <h1>JS JOUST</h1>
 
-    <div id="controller">
+        <label>
+            Room Code
+        </label>
 
-        <div id="knob"></div>
+        <input
+            id="roomInput"
+            maxlength="6"
+            placeholder="ABC123"
+        >
 
-    </div>
+        <button id="joinButton">
+            Join Game
+        </button>
+
+
+        <button
+            id="motionButton"
+            disabled
+        >
+            Enable Motion
+        </button>
+
+
+        <p id="status">
+            Enter a room code.
+        </p>
+
+
+        <div id="debug">
+
+            <p>
+                Beta:
+                <span id="beta">0</span>
+            </p>
+
+            <p>
+                Gamma:
+                <span id="gamma">0</span>
+            </p>
+
+            <p>
+                Movement:
+                <span id="movement">
+                    0, 0
+                </span>
+            </p>
+
+        </div>
+
+    </main>
+
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <script src="config.js"></script>
 
     <script src="controller.js"></script>
 
