@@ -1,292 +1,407 @@
-const supabaseClient =
-    window.supabase.createClient(
-        SUPABASE_URL,
-        SUPABASE_KEY
-    );
-
-
-let channel = null;
-
-let playerId = null;
-
-let motionEnabled = false;
-
-
-// --------------------------------------------------
-// ELEMENTS
-// --------------------------------------------------
-
-const roomInput =
-    document.getElementById("roomInput");
-
-const joinButton =
-    document.getElementById("joinButton");
-
-const motionButton =
-    document.getElementById("motionButton");
-
-const status =
-    document.getElementById("status");
-
-
-// --------------------------------------------------
-// JOIN ROOM
-// --------------------------------------------------
-
-joinButton.addEventListener(
-    "click",
-    joinRoom
+const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_KEY
 );
 
 
-async function joinRoom() {
+// ==================================================
+// ROOM
+// ==================================================
 
-    const roomCode =
-        roomInput.value
-            .trim()
-            .toUpperCase();
+const roomCode = createRoomCode();
+
+document.getElementById("roomCode").textContent = roomCode;
+
+const channel = supabaseClient.channel(
+    `joust:${roomCode}`,
+    {
+        config: {
+            presence: {
+                key: "game-screen"
+            }
+        }
+    }
+);
 
 
-    if (roomCode.length !== 6) {
+// ==================================================
+// GAME STATE
+// ==================================================
 
-        status.textContent =
-            "Enter a 6-character room code.";
+const players = {};
 
-        return;
+
+// ==================================================
+// CREATE ROOM CONNECTION
+// ==================================================
+
+channel.subscribe(async (status) => {
+
+    console.log("Supabase:", status);
+
+    if (status === "SUBSCRIBED") {
+
+        document.getElementById("status").textContent =
+            "Room ready - waiting for players";
+
+        await channel.track({
+            type: "game-screen"
+        });
+
     }
 
-
-    playerId =
-        crypto.randomUUID();
+});
 
 
-    channel =
-        supabaseClient.channel(
-            `joust:${roomCode}`,
-            {
-                config: {
-                    presence: {
-                        key: playerId
-                    }
-                }
-            }
-        );
+// ==================================================
+// RECEIVE PLAYER MOVEMENT
+// ==================================================
 
+channel.on(
+    "broadcast",
+    {
+        event: "player-movement"
+    },
+    ({ payload }) => {
 
-    // Listen for connection
+        console.log("Movement received:", payload);
 
-    channel.subscribe(async statusValue => {
+        const player = players[payload.playerId];
 
-        console.log(
-            "Supabase:",
-            statusValue
-        );
+        if (!player) {
 
+            console.log(
+                "Movement received for unknown player:",
+                payload.playerId
+            );
 
-        if (
-            statusValue ===
-            "SUBSCRIBED"
-        ) {
-
-            status.textContent =
-                "Joined room!";
-
-
-            // Tell the room
-            // that we're a player.
-
-            await channel.track({
-
-                type: "player",
-
-                playerId
-
-            });
-
-
-            motionButton.disabled =
-                false;
-
+            return;
         }
 
-    });
+        player.input.x = payload.x;
+        player.input.y = payload.y;
 
-}
-
-
-// --------------------------------------------------
-// MOTION PERMISSION
-// --------------------------------------------------
-
-motionButton.addEventListener(
-    "click",
-    enableMotion
+    }
 );
 
 
-async function enableMotion() {
+// ==================================================
+// PRESENCE SYNC
+// ==================================================
 
-    try {
+channel.on(
+    "presence",
+    {
+        event: "sync"
+    },
+    () => {
 
-        // iOS
+        console.log("Presence sync");
 
-        if (
-            typeof DeviceOrientationEvent
-                .requestPermission ===
-            "function"
-        ) {
+        const state = channel.presenceState();
 
-            const permission =
-                await DeviceOrientationEvent
-                    .requestPermission();
+        console.log("Current presence:", state);
+
+        rebuildPlayers(state);
+
+    }
+);
 
 
-            if (
-                permission !==
-                "granted"
-            ) {
+// ==================================================
+// PLAYER JOINED
+// ==================================================
 
-                status.textContent =
-                    "Motion permission denied.";
+channel.on(
+    "presence",
+    {
+        event: "join"
+    },
+    ({ key, newPresences }) => {
 
+        console.log(
+            "Player joined:",
+            key,
+            newPresences
+        );
+
+        newPresences.forEach((presence) => {
+
+            if (presence.type !== "player") {
                 return;
             }
 
-        }
+            createPlayer(
+                presence.playerId
+            );
+
+        });
+
+    }
+);
 
 
-        motionEnabled = true;
+// ==================================================
+// PLAYER LEFT
+// ==================================================
 
+channel.on(
+    "presence",
+    {
+        event: "leave"
+    },
+    ({ key }) => {
 
-        window.addEventListener(
-            "deviceorientation",
-            handleOrientation
+        console.log(
+            "Player left:",
+            key
         );
 
-
-        motionButton.textContent =
-            "Motion Enabled";
-
-
-        status.textContent =
-            "Move your phone.";
+        removePlayer(key);
 
     }
-
-    catch (error) {
-
-        console.error(error);
-
-        status.textContent =
-            "Motion could not be enabled.";
-
-    }
-
-}
+);
 
 
-// --------------------------------------------------
-// PHONE MOVEMENT
-// --------------------------------------------------
+// ==================================================
+// REBUILD PLAYERS FROM PRESENCE
+// ==================================================
 
-function handleOrientation(event) {
+function rebuildPlayers(state) {
 
-    if (!motionEnabled) {
-        return;
-    }
+    const activePlayers = new Set();
 
 
-    const beta =
-        event.beta || 0;
+    Object.values(state).forEach((presences) => {
 
-    const gamma =
-        event.gamma || 0;
+        presences.forEach((presence) => {
 
+            if (presence.type !== "player") {
+                return;
+            }
 
-    document.getElementById("beta")
-        .textContent =
-        beta.toFixed(1);
+            activePlayers.add(
+                presence.playerId
+            );
 
+            createPlayer(
+                presence.playerId
+            );
 
-    document.getElementById("gamma")
-        .textContent =
-        gamma.toFixed(1);
+        });
 
-
-    // --------------------------------
-    // Convert tilt to movement
-    // --------------------------------
-
-    let x = gamma / 30;
-
-    let y = (beta - 45) / 30;
+    });
 
 
-    // Limit values between -1 and 1
+    // Remove players no longer present
 
-    x =
-        Math.max(
-            -1,
-            Math.min(1, x)
-        );
+    Object.keys(players).forEach((playerId) => {
 
+        if (!activePlayers.has(playerId)) {
 
-    y =
-        Math.max(
-            -1,
-            Math.min(1, y)
-        );
-
-
-    // Small dead zone
-
-    if (Math.abs(x) < 0.15) {
-        x = 0;
-    }
-
-
-    if (Math.abs(y) < 0.15) {
-        y = 0;
-    }
-
-
-    document.getElementById("movement")
-        .textContent =
-        `${x.toFixed(2)}, ${y.toFixed(2)}`;
-
-
-    sendMovement(x, y);
-
-}
-
-
-// --------------------------------------------------
-// SEND MOVEMENT
-// --------------------------------------------------
-
-function sendMovement(x, y) {
-
-    if (!channel) {
-        return;
-    }
-
-
-    channel.send({
-
-        type: "broadcast",
-
-        event: "player-movement",
-
-        payload: {
-
-            playerId,
-
-            x,
-
-            y
+            removePlayer(playerId);
 
         }
 
     });
+
+
+    document.getElementById("playerCount")
+        .textContent =
+        Object.keys(players).length;
+
+
+    if (Object.keys(players).length > 0) {
+
+        document.getElementById("status")
+            .textContent =
+            "Players connected!";
+
+    }
+
+}
+
+
+// ==================================================
+// CREATE PLAYER
+// ==================================================
+
+function createPlayer(playerId) {
+
+    if (players[playerId]) {
+        return;
+    }
+
+
+    console.log(
+        "Creating player:",
+        playerId
+    );
+
+
+    const arena =
+        document.getElementById("arena");
+
+
+    const element =
+        document.createElement("div");
+
+
+    element.className =
+        "player";
+
+
+    element.textContent =
+        Object.keys(players).length + 1;
+
+
+    arena.appendChild(element);
+
+
+    players[playerId] = {
+
+        id: playerId,
+
+        x: Math.random() * 700 + 30,
+
+        y: Math.random() * 400 + 30,
+
+        input: {
+            x: 0,
+            y: 0
+        },
+
+        speed: 4,
+
+        element
+
+    };
+
+}
+
+
+// ==================================================
+// REMOVE PLAYER
+// ==================================================
+
+function removePlayer(playerId) {
+
+    const player =
+        players[playerId];
+
+    if (!player) {
+        return;
+    }
+
+
+    player.element.remove();
+
+    delete players[playerId];
+
+
+    document.getElementById("playerCount")
+        .textContent =
+        Object.keys(players).length;
+
+}
+
+
+// ==================================================
+// GAME LOOP
+// ==================================================
+
+function updateGame() {
+
+    Object.values(players).forEach(player => {
+
+        player.x +=
+            player.input.x *
+            player.speed;
+
+
+        player.y +=
+            player.input.y *
+            player.speed;
+
+
+        // Arena boundaries
+
+        const maxX =
+            document.getElementById("arena")
+                .clientWidth - 40;
+
+        const maxY =
+            document.getElementById("arena")
+                .clientHeight - 40;
+
+
+        player.x = Math.max(
+            0,
+            Math.min(
+                maxX,
+                player.x
+            )
+        );
+
+
+        player.y = Math.max(
+            0,
+            Math.min(
+                maxY,
+                player.y
+            )
+        );
+
+    });
+
+}
+
+
+// ==================================================
+// RENDER
+// ==================================================
+
+function renderPlayers() {
+
+    Object.values(players).forEach(player => {
+
+        player.element.style.transform =
+            `translate(
+                ${player.x}px,
+                ${player.y}px
+            )`;
+
+    });
+
+}
+
+
+// ==================================================
+// MAIN LOOP
+// ==================================================
+
+function gameLoop() {
+
+    updateGame();
+
+    renderPlayers();
+
+    requestAnimationFrame(gameLoop);
+
+}
+
+gameLoop();
+
+
+// ==================================================
+// ROOM CODE
+// ==================================================
+
+function createRoomCode() {
+
+    return Math.random()
+        .toString(36)
+        .substring(2, 8)
+        .toUpperCase();
 
 }
