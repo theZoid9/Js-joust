@@ -1,0 +1,21 @@
+#controller {
+    width: 100vw;
+    height: 70vh;
+
+    background: #222;
+
+    touch-action: none;
+
+    position: relative;
+}
+
+#knob {
+    width: 80px;
+    height: 80px;
+
+    background: white;
+
+    border-radius: 50%;
+
+    position: absolute;
+}
