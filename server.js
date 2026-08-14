@@ -158,6 +158,83 @@ setInterval(() => {
 
 }, 5000);
 
+if (data.type === "movement") {
+
+    const player =
+        gameState.players[data.playerId];
+
+    if (!player) {
+        return;
+    }
+
+
+    player.input = {
+
+        x: data.x,
+
+        y: data.y
+
+    };
+
+}
+
+
+const GAME_TICK = 1000 / 30;
+
+setInterval(() => {
+
+    updateGame();
+
+}, GAME_TICK);
+
+
+function updateGame() {
+
+    Object.values(gameState.players)
+        .forEach(player => {
+
+            if (!player.alive) {
+                return;
+            }
+
+
+            player.x +=
+                player.input.x *
+                player.speed;
+
+            player.y +=
+                player.input.y *
+                player.speed;
+
+
+            // Keep inside arena
+
+            player.x = Math.max(
+                0,
+                Math.min(
+                    760,
+                    player.x
+                )
+            );
+
+
+            player.y = Math.max(
+                0,
+                Math.min(
+                    460,
+                    player.y
+                )
+            );
+
+        });
+
+
+    broadcast({
+        type: "state",
+        state: gameState
+    });
+
+}
 
 server.listen(3000, () => {
 

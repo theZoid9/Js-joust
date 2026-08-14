@@ -92,3 +92,59 @@ startButton.addEventListener("click", () => {
     }));
 
 });
+
+
+socket.addEventListener(
+    "message",
+    event => {
+
+        const message =
+            JSON.parse(event.data);
+
+
+        if (message.type === "state") {
+
+            renderGame(
+                message.state
+            );
+
+        }
+
+    }
+);
+
+
+function renderGame(state) {
+
+    Object.values(state.players)
+        .forEach(player => {
+
+            let element =
+                players[player.id];
+
+
+            if (!element) {
+
+                element =
+                    document.createElement("div");
+
+                element.className =
+                    "player";
+
+                arena.appendChild(element);
+
+                players[player.id] =
+                    element;
+
+            }
+
+
+            element.style.transform =
+                `translate(
+                    ${player.x}px,
+                    ${player.y}px
+                )`;
+
+        });
+
+}

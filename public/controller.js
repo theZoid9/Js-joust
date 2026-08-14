@@ -1,15 +1,23 @@
+const protocol =
+    window.location.protocol === "https:"
+        ? "wss:"
+        : "ws:";
+
 const socket = new WebSocket(
-    `wss://${location.host}`
+    `${protocol}//${window.location.host}`
 );
 
-
 let playerId = null;
+let motionEnabled = false;
 
-let targetX = 400;
-let targetY = 250;
 
+// -------------------------
+// WebSocket
+// -------------------------
 
 socket.addEventListener("open", () => {
+
+    console.log("Connected");
 
     document.getElementById("status")
         .textContent = "Connected";
@@ -21,75 +29,196 @@ socket.addEventListener("open", () => {
 });
 
 
-socket.addEventListener("message", event => {
+socket.addEventListener("message", (event) => {
 
     const message = JSON.parse(event.data);
 
+    console.log("Server:", message);
 
     if (message.type === "joined") {
 
-        playerId =
-            message.playerId;
+        playerId = message.playerId;
 
         console.log(
             "My player ID:",
             playerId
         );
-
     }
 
 });
 
 
-const controller =
-    document.getElementById("controller");
+socket.addEventListener("error", (error) => {
+
+    console.error(
+        "WebSocket error:",
+        error
+    );
+
+});
 
 
-controller.addEventListener(
-    "touchmove",
-    event => {
+// -------------------------
+// Enable phone motion
+// -------------------------
 
-        event.preventDefault();
-
-        const touch =
-            event.touches[0];
-
-        const rect =
-            controller.getBoundingClientRect();
+const enableButton =
+    document.getElementById("enableMotion");
 
 
-        targetX =
-            touch.clientX - rect.left;
+enableButton.addEventListener(
+    "click",
+    async () => {
 
-        targetY =
-            touch.clientY - rect.top;
+        try {
+
+            // iPhone requires permission
+            if (
+                typeof DeviceOrientationEvent !==
+                "undefined" &&
+                typeof DeviceOrientationEvent.requestPermission ===
+                "function"
+            ) {
+
+                const permission =
+                    await DeviceOrientationEvent
+                        .requestPermission();
+
+                if (permission !== "granted") {
+
+                    alert(
+                        "Motion permission was denied."
+                    );
+
+                    return;
+                }
+            }
 
 
-        sendMovement();
+            motionEnabled = true;
 
-    },
-    {
-        passive: false
+            enableButton.textContent =
+                "Motion Enabled";
+
+            document.getElementById("status")
+                .textContent =
+                "Tilt your phone to move";
+
+
+            window.addEventListener(
+                "deviceorientation",
+                handleMotion
+            );
+
+        } catch (error) {
+
+            console.error(error);
+
+            alert(
+                "Could not enable motion."
+            );
+
+        }
+
     }
 );
 
 
-function sendMovement() {
+// -------------------------
+// Read phone movement
+// -------------------------
+
+function handleMotion(event) {
+
+    if (!motionEnabled) {
+        return;
+    }
+
+
+    const beta =
+        event.beta || 0;
+
+    const gamma =
+        event.gamma || 0;
+
+
+    // Show values on screen
+    document.getElementById("beta")
+        .textContent =
+        beta.toFixed(1);
+
+    document.getElementById("gamma")
+        .textContent =
+        gamma.toFixed(1);
+
+
+    // Convert tilt into movement
+
+    let moveX = 0;
+    let moveY = 0;
+
+
+    const deadZone = 8;
+
+
+    // LEFT / RIGHT
+
+    if (gamma > deadZone) {
+
+        moveX = 1;
+
+    } else if (gamma < -deadZone) {
+
+        moveX = -1;
+
+    }
+
+
+    // FORWARD / BACKWARD
+
+    if (beta > 60 + deadZone) {
+
+        moveY = 1;
+
+    } else if (beta < 60 - deadZone) {
+
+        moveY = -1;
+
+    }
+
+
+    sendMovement(
+        moveX,
+        moveY
+    );
+
+}
+
+
+// -------------------------
+// Send movement
+// -------------------------
+
+function sendMovement(x, y) {
 
     if (!playerId) {
+        return;
+    }
+
+    if (socket.readyState !== WebSocket.OPEN) {
         return;
     }
 
 
     socket.send(JSON.stringify({
 
-        type: "move",
+        type: "movement",
 
         playerId,
 
-        x: targetX,
+        x,
 
-        y: targetY
+        y
 
     }));
 
