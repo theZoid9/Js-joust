@@ -1,12 +1,13 @@
 {
   "name": "js-joust",
   "version": "1.0.0",
-  "description": "Mobile multiplayer JS Joust using Supabase Realtime",
+  "description": "Multiplayer motion-controlled JS Joust",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
+    "dotenv": "^17.2.2",
     "express": "^5.1.0"
   }
 }
