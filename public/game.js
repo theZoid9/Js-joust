@@ -1,5 +1,5 @@
 const socket = new WebSocket(
-    `ws://${location.host}`
+    `wss://${location.host}`
 );
 
 
